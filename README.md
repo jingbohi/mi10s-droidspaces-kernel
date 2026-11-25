@@ -107,23 +107,22 @@ Android 13 的 `Build.isBuildConsistent()` 在 Treble 设备上等价于
 输入 `publish_release=1` 时，构建成功后会自动重打包并发布一个**不含 root** 的正式版：
 
 1. `tools/pack_boot.py` 用 `bootimg/thyme-boot-template.bin` + `dist/Image` 重建
-   `boot-thyme-noroot.img`（128 MiB，与原分区同尺寸，只替换 kernel 段）；
+   `boot-mi10s-droidspaces.img`（128 MiB，与原分区同尺寸，只替换 kernel 段）；
 2. `tools/verify_boot.py` 做 17 项结构校验，任一失败即中止发布
    （含 `no root patch payload`，所以打过 KernelPatch 的 Image 会被拒绝）；
-3. `gh release create` 上传 `boot-thyme-noroot.img`、`Image`、`AnyKernel3` zip、`System.map`、
+3. `gh release create` 上传 `boot-mi10s-droidspaces.img`、`Image`、`AnyKernel3` zip、`System.map`、
    `config-final.txt`、`SHA256SUMS`。
 
 | 约束 | 说明 |
 | --- | --- |
 | `qemu_probe=1` | 发布会**直接失败**，探针版改过 `setup.c`，不能刷机 |
-| 标签 | 默认 `release-<run_number>`，可用输入 `release_tag` 覆盖 |
+| 标签 | 输入 `version`，格式 `vX.Y.Z`（默认 `v1.0.0`，每发一版必须递增） |
 | 保留期 | release 永久保存；artifact 仍然只有 30 天 |
 | 权限 | job 声明 `permissions: contents: write`，用 `GITHUB_TOKEN` 发布 |
 
-端到端已验证一次：run [`45169780558`](https://github.com/jingbohi/mi10s-droidspaces-kernel/actions/runs/45169780558)
-（14 分 9 秒）走完整条链路，重打包 17 项全 PASS，发布
-[`release-38`](https://github.com/jingbohi/mi10s-droidspaces-kernel/releases/tag/release-38)，
-6 个附件的 SHA256 与 `SHA256SUMS` 逐项一致。
+CI 链路已在 run [`45169780558`](https://github.com/jingbohi/mi10s-droidspaces-kernel/actions/runs/45169780558)
+（14 分 9 秒）上端到端跑通：重打包 17 项全 PASS，6 个附件的 SHA256 与 `SHA256SUMS` 逐项一致。
+当时发布的 `release-38` 已撤回，现由 [`v1.0.0`](https://github.com/jingbohi/mi10s-droidspaces-kernel/releases/tag/v1.0.0) 取代。
 
 `bootimg/` 里是什么：
 

@@ -14,7 +14,7 @@ The point is to prove that only the kernel payload changed:
 
 Usage:
 
-    python3 tools/verify_boot.py --boot dist/boot-thyme-noroot.img \
+    python3 tools/verify_boot.py --boot dist/boot-mi10s-droidspaces.img \
         --manifest bootimg/thyme-boot-template.json --image dist/Image
 """
 import argparse

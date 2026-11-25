@@ -17,7 +17,7 @@ Usage:
         --template bootimg/thyme-boot-template.bin \
         --manifest bootimg/thyme-boot-template.json \
         --image dist/Image \
-        --out dist/boot-thyme-noroot.img
+        --out dist/boot-mi10s-droidspaces.img
 """
 import argparse
 import hashlib

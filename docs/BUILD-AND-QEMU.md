@@ -100,8 +100,8 @@ concurrency:
 | `allow_config_drift` | `1` | 仓库自带的原厂 config 来自另一棵树，保真门禁对本基线无效 |
 | `disable_arm64_hardening` | `0` | 保留原厂早期加固 |
 | `qemu_probe` | `0` | **刷机镜像必须为 0**；只有本地 QEMU 诊断才设 1 |
-| `publish_release` | `0` | `1` = 重打包 `boot-thyme-noroot.img` 并发布 release（见 5.1） |
-| `release_tag` | 空 | 留空 = `release-<run_number>` |
+| `publish_release` | `0` | `1` = 重打包 `boot-mi10s-droidspaces.img` 并发布 release（见 5.1） |
+| `version` | `v1.0.0` | release 标签，格式 `vX.Y.Z`；每发一版必须递增 |
 
 命令行等价写法：
 
@@ -130,7 +130,7 @@ gh workflow run build.yml `
 | Build | `bash scripts/build.sh` | 预检、编译、产物校验、打包，见 3.4 |
 | Repack boot.img | `tools/pack_boot.py` + `tools/verify_boot.py`，仅 `publish_release=1` | 17 项结构校验全过才继续；`qemu_probe=1` 直接失败，见 5.1 |
 | Upload artifacts | `actions/upload-artifact@v4`，`if: always()` | 构建失败也能保留已生成的文件；configure 阶段失败则看 Actions 步骤日志；保留 **30 天** |
-| Publish release | `gh release create`，仅 `publish_release=1` 且前面全部成功 | job 需要 `permissions: contents: write`；标签默认 `release-<run_number>` |
+| Publish release | `gh release create`，仅 `publish_release=1` 且前面全部成功 | job 需要 `permissions: contents: write`；标签取输入 `version`（`vX.Y.Z`） |
 
 补充：
 
@@ -179,7 +179,7 @@ artifact 名称是 **`thyme-droidspaces-<run_number>`**（不是 run_id）。P8 
 | 文件 | 用途 |
 |---|---|
 | `Image` | 未打 root 补丁的内核 |
-| `boot-thyme-noroot.img` | **仅 `publish_release=1` 时生成**：重打包好的 128 MiB 可刷镜像 |
+| `boot-mi10s-droidspaces.img` | **仅 `publish_release=1` 时生成**：重打包好的 128 MiB 可刷镜像 |
 | `AnyKernel3-thyme-droidspaces.zip` | 手机端 AnyKernel3 刷入包（本项目最终不用，保留备用） |
 | `config-final.txt` / `config-base.txt` / `config-diff.txt` | 最终配置 / 基线 / 差异 |
 | `Module.symvers` | 导出符号 + CRC |
@@ -566,9 +566,9 @@ powershell -ExecutionPolicy Bypass -File .\tools\flash_test.ps1 `
 ```bash
 python3 tools/pack_boot.py  --template bootimg/thyme-boot-template.bin \
     --manifest bootimg/thyme-boot-template.json --image dist/Image \
-    --out dist/boot-thyme-noroot.img
+    --out dist/boot-mi10s-droidspaces.img
 
-python3 tools/verify_boot.py --boot dist/boot-thyme-noroot.img \
+python3 tools/verify_boot.py --boot dist/boot-mi10s-droidspaces.img \
     --manifest bootimg/thyme-boot-template.json --image dist/Image
 ```
 
@@ -582,8 +582,8 @@ python3 tools/verify_boot.py --boot dist/boot-thyme-noroot.img \
 | `vbmeta bytes unchanged` / `footer body unchanged` | AVB 段没被改动（kernel 变大时只修正偏移字段） |
 | `no root patch payload` | 出现 `KernelPatch` / `KernelSU` / `kpatch` 就拒绝发布 |
 
-这 17 项全过才会 `gh release create`。发布内容：`boot-thyme-noroot.img`、`Image`、
-`AnyKernel3` zip、`System.map`、`config-final.txt`、`SHA256SUMS`；标签默认 `release-<run_number>`。
+这 17 项全过才会 `gh release create`。发布内容：`boot-mi10s-droidspaces.img`、`Image`、
+`AnyKernel3` zip、`System.map`、`config-final.txt`、`SHA256SUMS`；标签取输入 `version`（`vX.Y.Z`）。
 
 两个安全闸：
 
@@ -607,9 +607,17 @@ python3 tools/make_boot_template.py --boot stock_boot.img \
 | 步骤 | 结果 |
 |---|---|
 | Configure + Build | success（`Image` 49,317,904 B） |
-| Repack boot.img | 17 项全 PASS，`boot-thyme-noroot.img` 134,217,728 B，MD5 `e4531c648c844c78076db3107c00004d` |
+| Repack boot.img | 17 项全 PASS，`boot-mi10s-droidspaces.img` 134,217,728 B |
 | Upload artifacts | `thyme-droidspaces-38`，87.7 MB（含重打包后的 `boot.img`） |
-| Publish release | `release-38`，6 个附件，SHA256 与 `SHA256SUMS` 全部一致 |
+| Publish release | 当时发布的 `release-38` 已撤回，由 `v1.0.0` 取代 |
+
+当前正式版 [`v1.0.0`](https://github.com/jingbohi/mi10s-droidspaces-kernel/releases/tag/v1.0.0)
+同时提供两份 boot 镜像，其余附件只有一套：
+
+| 附件 | 来源 | 验证状态 |
+|---|---|---|
+| `boot-mi10s-droidspaces.img` | 本地构建（`Image` MD5 `AC660034…`） | **真机刷入验证，31 PASS / 0 FAIL** |
+| `boot-mi10s-droidspaces-ci.img` | run `45169780558` 的 CI 构建 | 未刷机验证，与本地版仅构建时间戳不同 |
 
 注意：每次构建的内核里带编译时间戳，所以 `Image` / `boot.img` 的 MD5 每次不同（体积可以一样）；
 跨版本比对请认 release 里的 `SHA256SUMS`，不要拿旧 MD5 判断新构建是否有问题。

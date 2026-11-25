@@ -47,10 +47,10 @@ on:
         description: 'Repack boot.img and publish a no-root release (1=yes; refused when qemu_probe=1)'
         required: false
         default: '0'
-      release_tag:
-        description: 'Release tag (empty = release-<run_number>)'
+      version:
+        description: 'Release tag in vX.Y.Z form (default v1.0.0; bump it for every new release)'
         required: false
-        default: ''
+        default: 'v1.0.0'
 
 concurrency:
   group: thyme-${{ inputs.kernel_branch }}-${{ inputs.defconfig }}-${{ inputs.droidspaces_layer }}-${{ inputs.allow_crc_mismatch }}-${{ inputs.disable_relr }}-${{ inputs.disable_kaslr }}-${{ inputs.allow_config_drift }}-${{ inputs.disable_arm64_hardening }}-${{ inputs.qemu_probe }}
@@ -142,9 +142,9 @@ jobs:
             --template bootimg/thyme-boot-template.bin \
             --manifest bootimg/thyme-boot-template.json \
             --image dist/Image \
-            --out dist/boot-thyme-noroot.img
+            --out dist/boot-mi10s-droidspaces.img
           python3 tools/verify_boot.py \
-            --boot dist/boot-thyme-noroot.img \
+            --boot dist/boot-mi10s-droidspaces.img \
             --manifest bootimg/thyme-boot-template.json \
             --image dist/Image
 
@@ -155,7 +155,7 @@ jobs:
           name: thyme-droidspaces-${{ github.run_number }}
           path: |
             dist/Image
-            dist/boot-thyme-noroot.img
+            dist/boot-mi10s-droidspaces.img
             dist/AnyKernel3-thyme-droidspaces.zip
             dist/config-final.txt
             dist/config-base.txt
@@ -173,12 +173,16 @@ jobs:
         if: inputs.publish_release == '1' && success()
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.release_tag || format('release-{0}', github.run_number) }}
+          TAG: ${{ inputs.version }}
         run: |
           set -euo pipefail
+          if [ -z "$TAG" ]; then
+            echo "::error::publish_release=1 必须填写 version（如 v1.0.0）"
+            exit 1
+          fi
           cd "$GITHUB_WORKSPACE/dist"
-          sha256sum Image boot-thyme-noroot.img AnyKernel3-thyme-droidspaces.zip System.map config-final.txt > SHA256SUMS
-          BOOT_MD5=$(md5sum boot-thyme-noroot.img | cut -d' ' -f1)
+          sha256sum Image boot-mi10s-droidspaces.img AnyKernel3-thyme-droidspaces.zip System.map config-final.txt > SHA256SUMS
+          BOOT_MD5=$(md5sum boot-mi10s-droidspaces.img | cut -d' ' -f1)
           IMG_MD5=$(md5sum Image | cut -d' ' -f1)
           VSTR=$(grep -m1 -aoE 'Linux version [0-9][0-9A-Za-z.+-]*' Image | cut -d' ' -f3)
           cat > /tmp/notes.md <<EOF
@@ -191,18 +195,18 @@ jobs:
           | defconfig | \`${{ inputs.defconfig }}\` |
           | 构建 | run [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |
 
-          **本 release 不含 root**：\`boot-thyme-noroot.img\` 只替换了 \`boot.img\` 的 kernel 段，
+          **本 release 不含 root**：\`boot-mi10s-droidspaces.img\` 只替换了 \`boot.img\` 的 kernel 段，
           ramdisk / vbmeta / cmdline / 分区大小逐字节保持不变（AVB 未重签，需已解锁 bootloader）。
 
           | 文件 | MD5 |
           | --- | --- |
-          | \`boot-thyme-noroot.img\` | \`$BOOT_MD5\` |
+          | \`boot-mi10s-droidspaces.img\` | \`$BOOT_MD5\` |
           | \`Image\` | \`$IMG_MD5\` |
 
           刷入（fastboot）：
 
           \`\`\`
-          fastboot flash boot boot-thyme-noroot.img
+          fastboot flash boot boot-mi10s-droidspaces.img
           fastboot reboot
           \`\`\`
 
@@ -212,8 +216,9 @@ jobs:
           - \`SYSVIPC\` 与 IPv6 NAT 保持原厂的 \`n\`；容器 IPv4 NAT 正常。
           - 需要 root 时用管理器自带的 \`kptools\` + \`kpimg\` 对 \`Image\` 重新打补丁后重打包。
           - 刷坏回退：音量减 + 电源约 15 秒进 fastboot，刷回原厂 boot.img 或上一个 release。
+          - 本文件由 CI 构建（未在真机刷入验证）；每个附件的 SHA256 见 \`SHA256SUMS\`。
           EOF
           gh release create "$TAG" \
-            --title "thyme 内核 $VSTR 正式版（无 root）· release ${{ github.run_number }}" \
+            --title "thyme 内核 $VSTR 正式版（无 root）· $TAG" \
             --notes-file /tmp/notes.md \
-            boot-thyme-noroot.img Image AnyKernel3-thyme-droidspaces.zip System.map config-final.txt SHA256SUMS
+            boot-mi10s-droidspaces.img Image AnyKernel3-thyme-droidspaces.zip System.map config-final.txt SHA256SUMS
